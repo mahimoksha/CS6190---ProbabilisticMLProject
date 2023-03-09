@@ -17,7 +17,7 @@ from torchvision import models
 from sklearn.metrics import recall_score
 import random
 from torchvision.transforms import Normalize
-from Dataloader import MonkeyPoxDataLoader
+from Dataloader.Dataloader import MonkeyPoxDataLoader
 import warnings
 import argparse
 warnings.filterwarnings("ignore")
@@ -28,8 +28,8 @@ import time
 def main(args):
     params = {'batch_size':args.batch,
             'shuffle':True}
-    rootdir = '/home/sci/mkaranam/Desktop/ML_Project_proba/'
-    img_dir = "/home/sci/mkaranam/Desktop/ML_Project_proba/OriginalImages/OriginalImages/Total_Data/"
+    rootdir = '/home/sci/mkaranam/Desktop/CS6190---ProbabilisticMLProject/data/'
+    img_dir = "/home/sci/mkaranam/Desktop/CS6190---ProbabilisticMLProject/OriginalImages/OriginalImages/Total_Data/"
     scratchDir = './Results'
     
     tr_csv_file = os.path.join(rootdir,"trainMonkeypox.csv")
@@ -38,6 +38,7 @@ def main(args):
 
     trans = transforms.Compose([transforms.ToTensor(),Normalize(mean=(0.485), std=(0.229))])
     test_trans = transforms.Compose([transforms.ToTensor(),Normalize(mean=(0.485), std=(0.229))])
+    import pdb;pdb.set_trace()
     train = MonkeyPoxDataLoader(tr_csv_file, img_dir, transform=trans)
     train_dataloader = torch.utils.data.DataLoader(train, **params)
     train_dataloader_eval = torch.utils.data.DataLoader(train, batch_size=1, shuffle=True)
