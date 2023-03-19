@@ -19,9 +19,10 @@ from sklearn.metrics import recall_score
 import random
 from torchvision.transforms import Normalize
 from torchvision import models
-from Dataloader.Dataloader import MonkeyPoxDataLoader
+from Dataloader.Dataloader import MonkeyPoxDataLoader,MonkeyPoxRandAugDataLoader
 import warnings
 import argparse
+from torchvision.transforms.autoaugment import AutoAugmentPolicy
 warnings.filterwarnings("ignore")
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda:0" if use_cuda else "cpu")
@@ -72,10 +73,10 @@ def one_epoch(model, loader, opt, loss_function, train=True):
     return np.mean(losses), model
 
 
-def trainer(model_name, epochs, train_loader, val_loader, training_logs, scratchDir):
+def trainer(args,model_name, epochs, train_loader, val_loader, training_logs, scratchDir):
     model = get_model(model_name)
     loss_function = nn.BCELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     optimizer.zero_grad()
     print(f"Epoch\ttrain_loss\tval_loss")
     training_logs.write(f"Epoch\ttrain_loss\tval_loss\n")
@@ -116,48 +117,70 @@ def eval(model_name, loader, training_logs, scratchDir):
 
 
 def main(args):
-    params = {'batch_size': args.batch,
-              'shuffle': True}
-    rootdir = '/usr/sci/scratch/Moksha/CS6190_project/'
-    csv_dir = os.path.join(rootdir, "data")
-    img_dir = "/usr/sci/scratch/Moksha/CS6190_project/OriginalImages/OriginalImages/Total_Data/"
-    scratchDir = './Results'
+        params = {'batch_size': args.batch,
+                'shuffle': True}
+        rootdir = '/usr/sci/scratch/Moksha/CS6190_project/'
+        csv_dir = os.path.join(rootdir, "data")
+        img_dir = "/usr/sci/scratch/Moksha/CS6190_project/OriginalImages/OriginalImages/Total_Data/"
+        scratchDir = './Results'
 
-    tr_csv_file = os.path.join(csv_dir, "trainMonkeypox.csv")
-    cv_csv_file = os.path.join(csv_dir, "cvMonkeypox.csv")
-    te_csv_file = os.path.join(csv_dir, "testMonkeypox.csv")
+        tr_csv_file = os.path.join(csv_dir, "trainMonkeypox.csv")
+        cv_csv_file = os.path.join(csv_dir, "cvMonkeypox.csv")
+        te_csv_file = os.path.join(csv_dir, "testMonkeypox.csv")
+        if args.runningType =="noAug":
+                trans = transforms.Compose(
+                [transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
+                test_trans = transforms.Compose(
+                [transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
+                train = MonkeyPoxDataLoader(tr_csv_file, img_dir, transform=trans)
+                train_dataloader = torch.utils.data.DataLoader(train, **params)
+                train_dataloader_eval = torch.utils.data.DataLoader(
+                train, batch_size=1, shuffle=True)
+                cv = MonkeyPoxDataLoader(cv_csv_file, img_dir, transform=test_trans)
 
-    trans = transforms.Compose(
-        [transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
-    test_trans = transforms.Compose(
-        [transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
+                cv_dataloader = torch.utils.data.DataLoader(cv, **params)
+                cv_dataloader_eval = torch.utils.data.DataLoader(
+                cv, batch_size=1, shuffle=True)
 
-    train = MonkeyPoxDataLoader(tr_csv_file, img_dir, transform=trans)
-    train_dataloader = torch.utils.data.DataLoader(train, **params)
-    train_dataloader_eval = torch.utils.data.DataLoader(
-        train, batch_size=1, shuffle=True)
-    cv = MonkeyPoxDataLoader(cv_csv_file, img_dir, transform=test_trans)
+                test = MonkeyPoxDataLoader(te_csv_file, img_dir, transform=test_trans)
+                test_dataloader = torch.utils.data.DataLoader(
+                test, batch_size=1, shuffle=True)
+        elif args.runningType =="RandAug":
+                trans = transforms.Compose(
+                [transforms.AutoAugment(AutoAugmentPolicy.CIFAR10),transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
+                test_trans = transforms.Compose(
+                [transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
+                train = MonkeyPoxRandAugDataLoader(tr_csv_file, img_dir, transform=trans)
+                train_dataloader = torch.utils.data.DataLoader(train, **params)
+                train_dataloader_eval = torch.utils.data.DataLoader(
+                train, batch_size=1, shuffle=True)
+                cv = MonkeyPoxRandAugDataLoader(cv_csv_file, img_dir, transform=test_trans)
 
-    cv_dataloader = torch.utils.data.DataLoader(cv, **params)
-    cv_dataloader_eval = torch.utils.data.DataLoader(
-        cv, batch_size=1, shuffle=True)
+                cv_dataloader = torch.utils.data.DataLoader(cv, **params)
+                cv_dataloader_eval = torch.utils.data.DataLoader(
+                cv, batch_size=1, shuffle=True)
 
-    test = MonkeyPoxDataLoader(te_csv_file, img_dir, transform=test_trans)
-    test_dataloader = torch.utils.data.DataLoader(
-        test, batch_size=1, shuffle=True)
+                test = MonkeyPoxRandAugDataLoader(te_csv_file, img_dir, transform=test_trans)
+                test_dataloader = torch.utils.data.DataLoader(
+                test, batch_size=1, shuffle=True)
 
-    model_name = "resnet50"
-    training_logs = open(f"{scratchDir}/training_log_{model_name}.txt", 'w')
-    epochs = 100
-    trainer(model_name, epochs, train_dataloader,
-            cv_dataloader, training_logs, scratchDir)
-    eval(model_name, test_dataloader, training_logs, scratchDir)
-    training_logs.close()
 
+        # model_name = "resnet50"
+        model_name = args.model_name
+        training_logs = open(f"{scratchDir}/training_log_{model_name}.txt", 'w')
+        epochs = args.epochs
+        trainer(args,model_name, epochs, train_dataloader,
+                cv_dataloader, training_logs, scratchDir)
+        eval(model_name, test_dataloader, training_logs, scratchDir)
+        training_logs.close()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Short sample app')
     parser.add_argument('-batch', type=int, action="store",
                         dest='batch', default=10)
+    parser.add_argument('-type'              ,type=str  , action="store", dest='runningType'   , default='noAug')
+    parser.add_argument('-model_name'              ,type=str  , action="store", dest='model_name'   , default='resnet50')
+    parser.add_argument('-epochs'            ,type=int  , action="store", dest='epochs', default=100       )
+    parser.add_argument('-lr'           ,type=float  , action="store", dest='lr'           , default=0.001     )
     args = parser.parse_args()
     main(args)
