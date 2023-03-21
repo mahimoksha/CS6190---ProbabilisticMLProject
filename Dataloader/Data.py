@@ -1,8 +1,8 @@
 import os
 import pandas as pd
 from sklearn.model_selection import train_test_split
-monkeypox = os.listdir("/home/sci/mkaranam/Desktop/ML_Project_proba/Original Images/Original Images/Monkey Pox")
-not_monkey_pox = os.listdir("/home/sci/mkaranam/Desktop/ML_Project_proba/Original Images/Original Images/Others")
+monkeypox = os.listdir("/home/sci/mkaranam/Desktop/CS6190---ProbabilisticMLProject/OriginalImages/OriginalImages/Monkey Pox")
+not_monkey_pox = os.listdir("/home/sci/mkaranam/Desktop/CS6190---ProbabilisticMLProject/OriginalImages/OriginalImages/Others")
 labels = [1]*len(monkeypox)+[0]*len(not_monkey_pox)
 dataset_  = pd.DataFrame()
 dataset_["Image_name"] = monkeypox+not_monkey_pox
@@ -13,7 +13,7 @@ check_labels = list(dataset_["labels"][:len(monkeypox)])
 not_check_labels = list(dataset_["labels"][len(monkeypox):])
 dataset_ = dataset_.sample(frac=1).reset_index(drop=True)
 dataset_.to_csv("MonkeypoxDataset.csv",index=False)
-data = pd.read_csv("/home/sci/mkaranam/Desktop/ML_Project_proba/MonkeypoxDataset.csv")
+data = pd.read_csv("/home/sci/mkaranam/Desktop/CS6190---ProbabilisticMLProject/data/MonkeypoxDataset.csv")
 Y = data['labels']
 # X = data.drop('labels',axis=1)
 X=  data

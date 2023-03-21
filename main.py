@@ -22,6 +22,7 @@ from torchvision import models
 from Dataloader.Dataloader import MonkeyPoxDataLoader,MonkeyPoxRandAugDataLoader
 import warnings
 import argparse
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from torchvision.transforms.autoaugment import AutoAugmentPolicy
 warnings.filterwarnings("ignore")
 use_cuda = torch.cuda.is_available()
@@ -81,6 +82,8 @@ def trainer(args,model_name, epochs, train_loader, val_loader, training_logs, sc
     print(f"Epoch\ttrain_loss\tval_loss")
     training_logs.write(f"Epoch\ttrain_loss\tval_loss\n")
     best_val_loss = 10000
+    train_loss_arr = []
+    val_loss_arr = []
     for i in range(epochs):
         train_loss, model = one_epoch(
             model, train_loader, optimizer, loss_function)
@@ -88,9 +91,12 @@ def trainer(args,model_name, epochs, train_loader, val_loader, training_logs, sc
             model, val_loader, optimizer, loss_function, train=False)
         print(f"{i+1}\t{train_loss}\t{val_loss}")
         training_logs.write(f"{i+1}\t{train_loss}\t{val_loss}\n")
+        train_loss_arr.append(train_loss)
+        val_loss_arr.append(val_loss)
         if val_loss < best_val_loss:
             torch.save(model.state_dict(),
                        f'{scratchDir}/{model_name}_best_model.torch')
+    return train_loss_arr, val_loss_arr
 
 
 def eval(model_name, loader, training_logs, scratchDir):
@@ -101,6 +107,8 @@ def eval(model_name, loader, training_logs, scratchDir):
     training_logs.write(f"\nTest predictions. \n")
     training_logs.write(f"\npred\ttrue\n")
     correct = 0
+    correct_cm = []
+    pred_cm = []
     for input, output in loader:
         input = input.to(device)
         output = output.to(device)
@@ -110,10 +118,13 @@ def eval(model_name, loader, training_logs, scratchDir):
         prediction = 0 if pred[-1].squeeze().detach().cpu().numpy() < 0.5 else 1
         if prediction == output[-1]:
             correct += 1
+        correct_cm.append(output[-1].item())
+        pred_cm.append(prediction)
 
     print("Done")
     print(f"Accuracy: {correct/len(loader)}")
     training_logs.write(f"\nAccuracy: {correct/len(loader)}\n")
+    return correct_cm, pred_cm
 
 
 def main(args):
@@ -145,7 +156,7 @@ def main(args):
                 test = MonkeyPoxDataLoader(te_csv_file, img_dir, transform=test_trans)
                 test_dataloader = torch.utils.data.DataLoader(
                 test, batch_size=1, shuffle=True)
-        elif args.runningType =="RandAug":
+        elif args.runningType =="AutoAugTransfer":
                 trans = transforms.Compose(
                 [transforms.AutoAugment(AutoAugmentPolicy.CIFAR10),transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
                 test_trans = transforms.Compose(
@@ -163,15 +174,43 @@ def main(args):
                 test = MonkeyPoxRandAugDataLoader(te_csv_file, img_dir, transform=test_trans)
                 test_dataloader = torch.utils.data.DataLoader(
                 test, batch_size=1, shuffle=True)
+        elif args.runningType =="AutoAugNormal":
+                print("AutoAugNormal")
+                trans = transforms.Compose(
+                [transforms.AutoAugment(),transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
+                test_trans = transforms.Compose(
+                [transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
+                train = MonkeyPoxRandAugDataLoader(tr_csv_file, img_dir, transform=trans)
+                train_dataloader = torch.utils.data.DataLoader(train, **params)
+                train_dataloader_eval = torch.utils.data.DataLoader(
+                train, batch_size=1, shuffle=True)
+                cv = MonkeyPoxRandAugDataLoader(cv_csv_file, img_dir, transform=test_trans)
 
+                cv_dataloader = torch.utils.data.DataLoader(cv, **params)
+                cv_dataloader_eval = torch.utils.data.DataLoader(
+                cv, batch_size=1, shuffle=True)
+
+                test = MonkeyPoxRandAugDataLoader(te_csv_file, img_dir, transform=test_trans)
+                test_dataloader = torch.utils.data.DataLoader(
+                test, batch_size=1, shuffle=True)
 
         # model_name = "resnet50"
         model_name = args.model_name
-        training_logs = open(f"{scratchDir}/training_log_{model_name}.txt", 'w')
+        training_logs = open(f"{scratchDir}/training_log_{model_name}_{args.runningType}.txt", 'w')
         epochs = args.epochs
-        trainer(args,model_name, epochs, train_dataloader,
+        train_loss_arr, val_loss_arr = trainer(args,model_name, epochs, train_dataloader,
                 cv_dataloader, training_logs, scratchDir)
-        eval(model_name, test_dataloader, training_logs, scratchDir)
+        fig, ax = plt.subplots()
+        fig.set_size_inches(20,16)
+        ax.plot(train_loss_arr, label="train")
+        ax.plot(val_loss_arr, label="validation")
+        ax.legend()
+        fig.savefig(os.path.join(scratchDir,"train_val_loss_"+model_name+"_"+args.runningType+".png"),transparent=True,bbox_inches='tight')   
+        orig, pred = eval(model_name, test_dataloader, training_logs, scratchDir)
+        cm = confusion_matrix(np.array(orig), np.array(pred))
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+        disp.plot()
+        plt.savefig(os.path.join(scratchDir,"confusion_matrix_"+model_name+"_"+args.runningType+".png"),transparent=True,bbox_inches='tight')   
         training_logs.close()
 
 if __name__ == '__main__':
