@@ -55,6 +55,10 @@ class MonkeyPoxRandAugDataLoader(Dataset):
         self.monkey_pox = pd.read_csv(csv_file)
         self.root_dir = img_dir
         self.transform = transform
+        self.rgb_transform = transforms.Compose(
+            [ transforms.Lambda(lambda x: x.repeat(3, 1, 1) )]
+        )
+ 
 
     def __len__(self):
         return len(self.monkey_pox)
@@ -66,6 +70,9 @@ class MonkeyPoxRandAugDataLoader(Dataset):
         image = Image.open(img_name)
         
         label = self.monkey_pox.iloc[idx, 1]
+        if len(image.mode) == 1:
+            image = image.convert('RGB')
         if self.transform:
             image = self.transform(image)
+            # image = (image - image.min()) / (image.max() - image.min())
         return image, label
