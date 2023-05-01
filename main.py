@@ -23,6 +23,7 @@ from Dataloader.Dataloader import MonkeyPoxDataLoader,MonkeyPoxRandAugDataLoader
 import warnings
 import argparse
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from torchvision.transforms.autoaugment import AutoAugmentPolicy
 warnings.filterwarnings("ignore")
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -93,6 +94,8 @@ def trainer(args,model_name, train_loader, val_loader, training_logs, scratchDir
         val_loss_arr.append(val_loss)
         print(f"{i+1}\t{train_loss}\t{val_loss}")
         training_logs.write(f"{i+1}\t{train_loss}\t{val_loss}\n")
+        train_loss_arr.append(train_loss)
+        val_loss_arr.append(val_loss)
         if val_loss < best_val_loss:
             torch.save(model.state_dict(),
                        f'{scratchDir}/{model_name}_{args.runningType}_best_model.torch')
@@ -129,92 +132,92 @@ def eval(args, model_name, loader, training_logs, scratchDir):
 
 
 def main(args):
-        params = {'batch_size': args.batch,
-                'shuffle': True}
-        rootdir = '/usr/sci/scratch/Moksha/CS6190_project/'
-        csv_dir = os.path.join(rootdir, "data")
-        img_dir =  "/usr/sci/scratch/Moksha/CS6190_project/OriginalImages/OriginalImages/original+generated/" # "/usr/sci/scratch/Moksha/CS6190_project/OriginalImages/OriginalImages/Total_Data/"
-        scratchDir = './Results'
+    params = {'batch_size': args.batch,
+            'shuffle': True}
+    rootdir = '/usr/sci/scratch/Moksha/CS6190_project/'
+    csv_dir = os.path.join(rootdir, "data")
+    img_dir =  "/usr/sci/scratch/Moksha/CS6190_project/OriginalImages/OriginalImages/original+generated/" # "/usr/sci/scratch/Moksha/CS6190_project/OriginalImages/OriginalImages/Total_Data/"
+    scratchDir = './Results'
 
-        tr_csv_file = os.path.join(csv_dir, "vae_trainMonkeypox.csv")
-        cv_csv_file = os.path.join(csv_dir, "vae_cvMonkeypox.csv")
-        te_csv_file = os.path.join(csv_dir, "testMonkeypox.csv")
-        if args.runningType =="noAug" or "vae" in args.runningType:
-            trans = transforms.Compose(
-            [transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
-            test_trans = transforms.Compose(
-            [transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
-                
-        elif args.runningType =="PretrainedAug":
-            trans = transforms.Compose(
-            [transforms.AutoAugment(AutoAugmentPolicy.CIFAR10),transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
-            test_trans = transforms.Compose(
-            [transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
+    tr_csv_file = os.path.join(csv_dir, "vae_trainMonkeypox.csv")
+    cv_csv_file = os.path.join(csv_dir, "vae_cvMonkeypox.csv")
+    te_csv_file = os.path.join(csv_dir, "testMonkeypox.csv")
+    if args.runningType =="noAug" or "vae" in args.runningType:
+        trans = transforms.Compose(
+        [transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
+        test_trans = transforms.Compose(
+        [transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
+            
+    elif args.runningType =="PretrainedAug":
+        trans = transforms.Compose(
+        [transforms.AutoAugment(AutoAugmentPolicy.CIFAR10),transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
+        test_trans = transforms.Compose(
+        [transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
 
-        elif args.runningType =="RandAug":
-            trans = transforms.Compose(
-            [transforms.RandAugment(num_ops=4, magnitude=14),transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
-            test_trans = transforms.Compose(
-            [transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
+    elif args.runningType =="RandAug":
+        trans = transforms.Compose(
+        [transforms.RandAugment(num_ops=4, magnitude=14),transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
+        test_trans = transforms.Compose(
+        [transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
 
-        elif args.runningType =="GenericAug":
-            trans = transforms.Compose([
-                transforms.ToTensor(), 
-                Normalize(mean=(0.485), std=(0.229)),
-                transforms.RandomHorizontalFlip(p=0.5),
-                transforms.RandomCrop((200, 200)),
-                transforms.RandomRotation(30),
-                transforms.RandomAutocontrast(p=0.5)
-            ])
-            test_trans = transforms.Compose(
-            [transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
-        
-        elif args.runningType == "EnsembleAug":
-            trans = transforms.Compose([
-                transforms.RandAugment(num_ops=4, magnitude=14),
-                transforms.ToTensor(), 
-                Normalize(mean=(0.485), std=(0.229)),
-                transforms.RandomHorizontalFlip(p=0.5),
-                transforms.RandomCrop((200, 200)),
-                transforms.RandomRotation(30),
-                transforms.RandomAutocontrast(p=0.5)
-            ])
-            test_trans = transforms.Compose(
-            [transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
-        else:
-            raise NotImplementedError(f"Invalid augmentation type: {args.runningType}")
+    elif args.runningType =="GenericAug":
+        trans = transforms.Compose([
+            transforms.ToTensor(), 
+            Normalize(mean=(0.485), std=(0.229)),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomCrop((200, 200)),
+            transforms.RandomRotation(30),
+            transforms.RandomAutocontrast(p=0.5)
+        ])
+        test_trans = transforms.Compose(
+        [transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
+    
+    elif args.runningType == "EnsembleAug":
+        trans = transforms.Compose([
+            transforms.RandAugment(num_ops=4, magnitude=14),
+            transforms.ToTensor(), 
+            Normalize(mean=(0.485), std=(0.229)),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomCrop((200, 200)),
+            transforms.RandomRotation(30),
+            transforms.RandomAutocontrast(p=0.5)
+        ])
+        test_trans = transforms.Compose(
+        [transforms.ToTensor(), Normalize(mean=(0.485), std=(0.229))])
+    else:
+        raise NotImplementedError(f"Invalid augmentation type: {args.runningType}")
 
-        train = MonkeyPoxRandAugDataLoader(tr_csv_file, img_dir, transform=trans)
-        train_dataloader = torch.utils.data.DataLoader(train, **params)
-        train_dataloader_eval = torch.utils.data.DataLoader(
-        train, batch_size=1, shuffle=True)
-        cv = MonkeyPoxRandAugDataLoader(cv_csv_file, img_dir, transform=test_trans)
+    train = MonkeyPoxRandAugDataLoader(tr_csv_file, img_dir, transform=trans)
+    train_dataloader = torch.utils.data.DataLoader(train, **params)
+    train_dataloader_eval = torch.utils.data.DataLoader(
+    train, batch_size=1, shuffle=True)
+    cv = MonkeyPoxRandAugDataLoader(cv_csv_file, img_dir, transform=test_trans)
 
-        cv_dataloader = torch.utils.data.DataLoader(cv, **params)
-        cv_dataloader_eval = torch.utils.data.DataLoader(
-        cv, batch_size=1, shuffle=True)
+    cv_dataloader = torch.utils.data.DataLoader(cv, **params)
+    cv_dataloader_eval = torch.utils.data.DataLoader(
+    cv, batch_size=1, shuffle=True)
 
-        test = MonkeyPoxRandAugDataLoader(te_csv_file, img_dir, transform=test_trans)
-        test_dataloader = torch.utils.data.DataLoader(
-        test, batch_size=1, shuffle=True)
+    test = MonkeyPoxRandAugDataLoader(te_csv_file, img_dir, transform=test_trans)
+    test_dataloader = torch.utils.data.DataLoader(
+    test, batch_size=1, shuffle=True)
 
-        # model_name = "resnet50"
-        model_name = args.model_name
-        training_logs = open(f"{scratchDir}/training_log_{model_name}_{args.runningType}.txt", 'w')
-        train_loss_arr, val_loss_arr = trainer(args,model_name, train_dataloader,
-                cv_dataloader, training_logs, scratchDir)
-        fig, ax = plt.subplots()
-        fig.set_size_inches(20,16)
-        ax.plot(train_loss_arr, label="train")
-        ax.plot(val_loss_arr, label="validation")
-        ax.legend()
-        fig.savefig(os.path.join(scratchDir,"train_val_loss_"+model_name+"_"+args.runningType+".png"),transparent=True,bbox_inches='tight') 
-        orig, pred = eval(args, model_name, test_dataloader, training_logs, scratchDir)
-        cm = confusion_matrix(np.array(orig), np.array(pred))
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-        disp.plot()
-        plt.savefig(os.path.join(scratchDir,"confusion_matrix_"+model_name+"_"+args.runningType+".png"),transparent=True,bbox_inches='tight')   
-        training_logs.close()
+    # model_name = "resnet50"
+    model_name = args.model_name
+    training_logs = open(f"{scratchDir}/training_log_{model_name}_{args.runningType}.txt", 'w')
+    train_loss_arr, val_loss_arr = trainer(args,model_name, train_dataloader,
+            cv_dataloader, training_logs, scratchDir)
+    fig, ax = plt.subplots()
+    fig.set_size_inches(20,16)
+    ax.plot(train_loss_arr, label="train")
+    ax.plot(val_loss_arr, label="validation")
+    ax.legend()
+    fig.savefig(os.path.join(scratchDir,"train_val_loss_"+model_name+"_"+args.runningType+".png"),transparent=True,bbox_inches='tight') 
+    orig, pred = eval(args, model_name, test_dataloader, training_logs, scratchDir)
+    cm = confusion_matrix(np.array(orig), np.array(pred))
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+    disp.plot()
+    plt.savefig(os.path.join(scratchDir,"confusion_matrix_"+model_name+"_"+args.runningType+".png"),transparent=True,bbox_inches='tight')   
+    training_logs.close()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Short sample app')
