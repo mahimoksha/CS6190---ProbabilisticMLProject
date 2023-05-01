@@ -1,25 +1,14 @@
-import time
 import numpy as np
 from tqdm import tqdm
 from torchvision import transforms
-import re
-import pandas as pd
 import os
 import torch
-from sklearn.model_selection import train_test_split
 import torch.nn as nn
-import torch.nn.functional as F
-import math
-import pdb
-from sklearn.model_selection import KFold
-from torch import Tensor, optim
 import matplotlib.pyplot as plt
 from torchvision import models
-from sklearn.metrics import recall_score
-import random
 from torchvision.transforms import Normalize
 from torchvision import models
-from Dataloader.Dataloader import MonkeyPoxDataLoader,MonkeyPoxRandAugDataLoader
+from Dataloader.Dataloader import MonkeyPoxRandAugDataLoader
 import warnings
 import argparse
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
@@ -189,19 +178,13 @@ def main(args):
 
     train = MonkeyPoxRandAugDataLoader(tr_csv_file, img_dir, transform=trans)
     train_dataloader = torch.utils.data.DataLoader(train, **params)
-    train_dataloader_eval = torch.utils.data.DataLoader(
-    train, batch_size=1, shuffle=True)
     cv = MonkeyPoxRandAugDataLoader(cv_csv_file, img_dir, transform=test_trans)
-
     cv_dataloader = torch.utils.data.DataLoader(cv, **params)
-    cv_dataloader_eval = torch.utils.data.DataLoader(
-    cv, batch_size=1, shuffle=True)
 
     test = MonkeyPoxRandAugDataLoader(te_csv_file, img_dir, transform=test_trans)
     test_dataloader = torch.utils.data.DataLoader(
     test, batch_size=1, shuffle=True)
 
-    # model_name = "resnet50"
     model_name = args.model_name
     training_logs = open(f"{scratchDir}/training_log_{model_name}_{args.runningType}.txt", 'w')
     train_loss_arr, val_loss_arr = trainer(args,model_name, train_dataloader,
@@ -222,9 +205,9 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Short sample app')
     parser.add_argument('-batch', type=int, action="store", dest='batch', default=10)
-    parser.add_argument('-type'              ,type=str  , action="store", dest='runningType'   , default='noAug')
-    parser.add_argument('-model_name'              ,type=str  , action="store", dest='model_name'   , default='resnet50')
-    parser.add_argument('-epochs'            ,type=int  , action="store", dest='epochs', default=100       )
-    parser.add_argument('-lr'           ,type=float  , action="store", dest='lr'           , default=0.001     )
+    parser.add_argument('-type',type=str, action="store", dest='runningType', default='noAug')
+    parser.add_argument('-model_name',type=str, action="store", dest='model_name', default='resnet50')
+    parser.add_argument('-epochs',type=int, action="store", dest='epochs', default=100)
+    parser.add_argument('-lr',type=float, action="store", dest='lr', default=0.001)
     args = parser.parse_args()
     main(args)
